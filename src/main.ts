@@ -1,59 +1,32 @@
-import { time, timeEnd } from "node:console";
 import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { QuotesAPI } from "./services/QuotesAPI.js";
 
-time("Get API data");
-const quotesAPI = new QuotesAPI();
-const quotes = await quotesAPI.getQuotes();
-timeEnd("Get API data");
-
-time("Streams");
-const loadQuotes = new Readable({
-  read() {
-    for (const quote of quotes) {
-      this.push(JSON.stringify(quote));
-    }
-    this.push(null);
-  },
-});
-
-const addTimestamp = new Transform({
-  transform(chunk, encoding, callback) {
-    const dto = JSON.parse(chunk);
-    const quote = {
-      ...dto,
+function* generateMassiveData() {
+  for (let i = 0; i < 1e5; i++) {
+    yield {
+      id: randomUUID(),
       createdAt: new Date(),
     };
-    callback(null, JSON.stringify(quote));
-  },
-});
-
-const addUUID = new Transform({
-  transform(chunk, encoding, callback) {
-    const dto = JSON.parse(chunk);
-    const quote = {
-      ...dto,
-      id: randomUUID(),
-    };
-    callback(null, JSON.stringify(quote));
-  },
-});
-
-const addLinebreak = new Transform({
-  transform(chunk, encoding, callback) {
-    callback(null, `${chunk}\n`);
-  },
-});
+  }
+}
 
 await pipeline(
-  loadQuotes,
-  addTimestamp,
-  addUUID,
-  addLinebreak,
+  new Readable({
+    read() {
+      for (const item of generateMassiveData()) {
+        this.push(JSON.stringify(item));
+      }
+      this.push(null);
+    },
+  }),
+  new Transform({
+    transform(chunk, encoding, callback) {
+      setTimeout(() => {
+        callback(null, `${chunk}\n`);
+      }, 50);
+    },
+  }),
   createWriteStream("output.txt")
 );
-
-timeEnd("Streams");
