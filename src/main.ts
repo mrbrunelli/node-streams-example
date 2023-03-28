@@ -14,17 +14,19 @@ function* generateMassiveData() {
 
 await pipeline(
   new Readable({
+    objectMode: true,
     read() {
       for (const item of generateMassiveData()) {
-        this.push(JSON.stringify(item));
+        this.push(item);
       }
       this.push(null);
     },
   }),
   new Transform({
+    objectMode: true,
     transform(chunk, encoding, callback) {
       setTimeout(() => {
-        callback(null, `${chunk}\n`);
+        callback(null, `${JSON.stringify(chunk)}\n`);
       }, 50);
     },
   }),
